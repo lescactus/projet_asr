@@ -1,0 +1,373 @@
+# Fichier contenant les déclarations de fonctions.
+
+# Affichage du menu.
+menu()
+{
+    clear                                       # Efface l'écran.
+    
+    
+    tput cup 0 $X_CURSEUR                       # Curseur en X=$X_CURSEUR; Y=0
+    echo  " +-----------------------+"
+    tput cup 1 $X_CURSEUR                       # Curseur en X=$X_CURSEUR; Y=1
+    echo  " | Programme réalisé par |"
+    tput cup 2 $X_CURSEUR                       # Curseur en X=$X_CURSEUR; Y=2
+    echo  " +-----------------------+"
+    tput cup 3 $X_CURSEUR                       # Curseur en X=$X_CURSEUR; Y=3
+    echo  " |                       |"
+    tput cup 4 $X_CURSEUR                       # Curseur en X=$X_CURSEUR; Y=4
+    echo  " |"
+    tput cup 4 $(( $X_CURSEUR + 6 ))            # Curseur en X=($X_CURSEUR + 6); Y=4
+    tput bold                                   # Texte en gras.
+    echo  "ENGELBERT Romain"
+    tput sgr0                                   # Réinitialisation des attributs textuels.
+    tput cup 4 $(( $X_CURSEUR + 25 ))           # Curseur en X=($X_CURSEUR + 25); Y=4
+    echo  "|"
+    tput cup 5 $X_CURSEUR                       # Curseur en X=$X_CURSEUR; Y=5
+    echo  " |           &&          |" 
+    tput cup 6 $X_CURSEUR                       # Curseur en X=$X_CURSEUR; Y=6
+    echo  " |"
+    tput cup 6 $(( $X_CURSEUR + 6 ))            # Curseur en X=($X_CURSEUR + 6); Y=6
+    tput bold                                   # Texte en gras.
+    echo  "MALDEME Alexandre"
+    tput sgr0                                   # Réinitialisation des attributs textuels.
+    tput cup 6 $(( $X_CURSEUR + 25 ))           # Curseur en X=($X_CURSEUR + 25 ); Y=4
+    echo  "|"
+    tput cup 7 $X_CURSEUR                       # Curseur en X=$X_CURSEUR; Y=7
+    echo  " |                       |"
+    tput cup 8 $X_CURSEUR                       # Curseur en X=$X_CURSEUR; Y=8
+    echo  " +-----------------------+"
+    echo ""
+
+    # Menu utilisant la structure select.
+    select choix in ${MENU[@]}; do
+    case $REPLY in
+        1)  check_utf8
+            nombre_virus
+                ;;
+
+        2)  check_utf8
+            liste_virus
+                ;;
+
+        3)  check_utf8
+            nombre_erreurs
+                ;;
+
+        4)  check_utf8
+            erreurs_machines
+                ;;
+
+        5)  check_utf8
+            machines_critiques
+                ;;
+
+        6)  check_utf8
+            mise_a_jour
+                ;;
+        
+        7)  check_utf8
+            hors_connexion
+                ;;
+        
+        8)  check_utf8
+            differents_evenements
+                ;;
+        
+        9)  check_utf8
+            evenements_date_machine
+                ;;
+        
+        10) echo "Fin du script." && clear && exit ;;
+        
+        *)  echo "Mauvais choix";;
+    esac
+    done
+}
+
+# Vérifie si le fichier CSV est en UTF-8, propose un conversion en UTF-8 le cas échéant (Le fichier est initialement en ISO-8859-15).
+check_utf8()
+{
+    echo ""
+    ENCODAGE=$(file -b --mime-encoding $FICHIER_CSV)
+    
+    # Vérifie l'encodage du fichier.
+    echo $ENCODAGE | grep -i "utf-8" > /dev/null
+    
+    # Si pas en UTF-8, proposer de le convertir.
+    [ ! $? -eq 0 ] || return 0 && read -p "/!\ $FICHIER_CSV est encodé en $(file -b --mime-encoding $FICHIER_CSV). Le convertir en UTF-8 (O/N)? : " -n 1 -r
+    
+    # --> L'utilisateur est d'accord.
+    #       On lui demande de nommer le fichier convertit en UTF-8 dans une boucle while.
+    #       Puis on convertit le fichier vers celui que l'on vient de nommer.
+    #       Et on exporte le nouveau nom de fichier.
+    # --> L'utilisateur n'est pas d'accord.
+    #       On l'avertit des risques liés aux caractères mal affichés.
+    [[ $REPLY =~ ^[Oo]$ ]] && echo "" \
+        && NOUVEAU_FICHIER=$FICHIER_CSV \
+        && while [[ $NOUVEAU_FICHIER == $FICHIER_CSV ]]; do read -p "Nom du nouveau fichier (doit être différent de l'ancien) : " NOUVEAU_FICHIER; done \
+        && iconv -f $ENCODAGE -t "UTF-8" $FICHIER_CSV -o $NOUVEAU_FICHIER \
+        && FICHIER_CSV=$NOUVEAU_FICHIER \
+        && export $FICHIER_CSV \
+        && return 0 \
+        || echo -e "\n/!\\ Tant pis, il y a des risques que certains caractères n'apparaissent pas correctement." \
+        && return 1
+}
+
+# Affiche le nombre de virus par machines.
+nombre_virus()
+{
+    echo -e "<nombre_virus>\t<nom_machine>\n"
+    
+    # grep -E :         Recherche les occurences de "virus:" ou "objet" (ce qui correspond aux seules occurences de virus).
+    # cut -f2 -d";" :   Permet de garder uniquement les noms de machines.
+    # sort :            Trie les noms de machines (les noms de machines sont regroupés).
+    # uniq -c :         Permet de compter les lignes identiques et affiche les compteurs d'occurences.
+    grep -E "virus:|objet" $FICHIER_CSV | cut -f2 -d";" | sort | uniq -c
+    
+    echo -e "\n\n"
+    read -p "Appuyez sur une touche pour retourner au menu ... " -n1 -r
+    menu
+}
+
+# Affiche la liste des différents virus.
+liste_virus()
+{
+    echo -e "\tNom des différents virus :\n"
+    
+    # grep -E :         Recherche les occurences de "virus:" ou "objet" (ce qui correspond aux seules occurences de virus).
+    # cut -f4 -d";" :   Permet de garder uniquement les descriptions d'évènements.
+    # sort :            Trie (regroupe les descriptions).
+    # awk :             Permet de ne garder que le nom du virus.
+    # uniq :            Supprime les doublons.
+    grep -E "virus:|objet" $FICHIER_CSV | cut -f4 -d";" | sort | awk -F" : " '{print $4}' | uniq
+    
+    echo -e "\n\n"
+    read -p "Appuyez sur une touche pour retourner au menu ... " -n1 -r
+    menu
+}
+
+# Recense et affiche le nombre total d'erreurs. La boucle for prend beaucoup de temps, mais il en faut pour le bonus de réalisation.
+nombre_erreurs()
+{
+    # Nombre de lignes dans le fichier.
+    MAX_PERCENT=$(wc -l $FICHIER_CSV | cut -d" " -f1)
+    PERCENT=0
+    ERREURS=0
+    i=0
+
+    echo "Traitement en cours ... Peut prendre du temps mais une boucle est nécéssaire afin de bénéficier du bonus de réalisation."
+    for line in `cat $FICHIER_CSV`; do
+        # Récupération des champs "Évènement" contenant une erreur, puis incrément de $ERREURS.
+        echo $line | cut -d";" -f3 | grep -i "erreur" > /dev/null 2>&1; [ $? -eq 0 ] && (( ERREURS++ ))
+        # Mise à jour du pourcentage.
+        PERCENT=$((i * 100 / $MAX_PERCENT))
+        # Affichage de la bar de progression.
+        print_progress_bar ${BAR_WIDTH} ${PERCENT}
+        echo -en "\r"
+        (( i++ ))
+    done
+
+    echo -e "\n\nNombre d'erreurs total : $ERREURS\n\n"
+    echo -e "<nombre_erreurs>\t<description_erreurs>\n"
+    
+    # cut -f3 -d";" :   Garder la colonne évènements.
+    # grep -i :         Recherche la chaîne "erreur" sans tenir compte de la casse.
+    # sort :            Trie.
+    # uniq -c :         Permet de compter les lignes identiques et affiche les compteurs d'occurences.
+    cut -f3 -d";" $FICHIER_CSV | grep -i "erreur" | sort | uniq -c
+    
+    echo -e "\n\n"
+    read -p "Appuyez sur une touche pour retourner au menu ... " -n1 -r
+    menu
+}
+
+# Affiche les erreurs par machines.
+erreurs_machines()
+{
+    echo -e "<nombre_erreurs>\t<nom_machine> --> <descriptions>\n"
+    
+    # cut -f2,3 -d";" : Garder les colonnes des noms des machines et des évènements.
+    # grep -i :         Recherche la chaîne "erreur" sans tenir compte de la casse.
+    # sort :            Trie.
+    # uniq -c :         Permet de compter les lignes identiques et affiche les compteurs d'occurences.
+    # sed -re           Remplace le séparateur ";" par " --> " pour une meilleure lisibilité.
+    cut -f2,3 -d";" $FICHIER_CSV | grep -i "erreur" | sort | uniq -c | sed -re 's/;/ --> /g'
+    
+    echo -e "\n\n"
+    read -p "Appuyez sur une touche pour retourner au menu ... " -n1 -r
+    menu
+}
+
+# Affiche les machines les plus critiques.
+machines_critiques()
+{
+    echo -e "<nombre_critique>\t<nom_machine> --> <état>\n"
+    
+    # cut -f2,6 -d";" : Garder les colonnes des noms des machines et des degrés d'importance.
+    # grep -i :         Recherche la chaîne "critique" sans tenir compte de la casse.
+    # sort :            Trie.
+    # uniq -c :         Permet de compter les lignes identiques et affiche les compteurs d'occurences.
+    # sort -nr :        Trie numériquement en sens inverse (plus grand nombre en premier).
+    # sed -re           Remplace le séparateur ";" par " --> " pour une meilleure lisibilité.
+    # head :            Affiche les 10 premiers résultats.
+    cut -f2,6 -d";" $FICHIER_CSV | grep -i "critique" | sort | uniq -c | sort -nr | sed -re 's/;/ --> /g' | head
+    
+    echo -e "\n\n"
+    read -p "Appuyez sur une touche pour retourner au menu ... " -n1 -r
+    menu
+}
+
+# Affiche les machines qui n'ont pas mis à jour leurs BDD virale.
+mise_a_jour()
+{
+    echo -e "<nombre_erreurs>\t<nom_machine>\n"
+    
+    # grep -i :         Recherche la chaîne "erreur réseau de mise à jour" sans tenir compte de la casse. 
+    #                   C'est cette chaîne qui nous informe si la machine a réussi ou non à mettre à jour sa BDD virale.
+    # cut -f2 -d";" :   Permet de garder uniquement les noms de machines.
+    # sort :            Trie.
+    # uniq -c :         Permet de compter les lignes identiques et affiche les compteurs d'occurences.
+    grep -i "erreur réseau de mise à jour" $FICHIER_CSV | cut -f2 -d";" | sort | uniq -c
+    
+    echo -e "\n\n"
+    read -p "Appuyez sur une touche pour retourner au menu ... " -n1 -r
+    menu
+}
+
+# Recense les machines hors-connexion réseau. /!\ Nous n'avons pas trouvé d'évènements hors-connexion réseau /!\
+hors_connexion()
+{
+    echo "/!\ Rien n'a été trouvé ! /!\ "
+    echo -e "\n\n"
+    read -p "Appuyez sur une touche pour retourner au menu ... " -n1 -r
+    menu
+}
+
+# Recense et affiche les différents évènements.
+differents_evenements()
+{
+    echo -e "<nombre_évènements>\t<description_évènements>\n"
+    
+    # tail -n +3:       Lit tout le fichier sauf les 2 premières lignes (qui ne contiennent pas d'info).
+    # cut -f3 -d";" :   Garder la colonne évènements.
+    # sort :            Trie.
+    # uniq -c :         Permet de compter les lignes identiques et affiche les compteurs d'occurences.
+    tail -n +3 $FICHIER_CSV | cut -f3 -d";" | sort | uniq -c
+    
+    echo -e "\n\n"
+    read -p "Appuyez sur une touche pour retourner au menu ... " -n1 -r
+    menu
+}
+
+# Afficher les évènements par date et par machine.
+evenements_date_machine()
+{
+    # tail -n +3:       Lit tout le fichier sauf les 2 premières lignes (qui ne contiennent pas d'info).
+    # sed -re  :        Supprime les hh:mm:ss de la date.
+    # sort -k2 :        Trie sur la deuxième colonne (soit la date).
+    # cut :             Permet de ne garder que la date, le nom de la machine et l'évènement.
+    # uniq -c :         Permet de compter les lignes identiques et affiche les compteurs d'occurences.
+    # > tmp             Redirige la sortie de cette commande dans un fichier temporaire.
+    # sed -i :          Ajoute un ";" après chaque 1er mot de chaque ligne (après le compteur de uniq -c).
+    tail -n +3 $FICHIER_CSV | sed -re 's/[0-9][0-9]:[0-9][0-9]:[0-9][0-9]//' | sort -k2 | cut -f1,2,3 -d";" | uniq -c > $FICHIER_TMP
+    sed -i 's/\S\+/&;/' $FICHIER_TMP
+    
+
+    DATE=$(head -1 $FICHIER_TMP | cut -f2 -d";")                    # Récupère le jour de la première ligne.
+    MACHINE=$(head -1 $FICHIER_TMP | cut -f3 -d";")                 # Récupère le nom de la machine de la première ligne.
+    EVENEMENT=$(head -1 $FICHIER_TMP | cut -f4 -d";")               # Récupère l'évènement de la première ligne.
+    NOMBRE=$(head -1 $FICHIER_TMP | cut -f1 -d";" | sed 's/ *//g')  # Récupère le nombre d'évènements de la première ligne.
+
+    echo -e "***** $DATE"
+    echo -e "\t* $MACHINE"
+    echo -e "\t\t* $EVENEMENT"
+
+    # Le reste est compliqué à expliquer, mais fonctionne.
+    for line in `cat $FICHIER_TMP`; do
+        NOMBRE=$(echo $line | cut -f1 -d";" | sed 's/ *//g')
+
+        if [[ $(echo $line | cut -f2 -d";") == $DATE ]]; then
+            machine_existe $(echo $line | cut -f3 -d";") $MACHINE $(echo $line | cut -f4 -d";") $EVENEMENT
+        else
+            DATE=$(echo $line | cut -f2 -d";")
+            echo -e "\n\n\n\n***** $DATE"
+            machine_existe $(echo $line | cut -f3 -d";") $MACHINE $(echo $line | cut -f4 -d";") $EVENEMENT
+        fi
+    done
+    
+    rm -r $FICHIER_TMP
+    
+    echo -e "\n\n"
+    read -p "Appuyez sur une touche pour retourner au menu ... " -n1 -r
+    menu
+}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
+# ============== Fonctions pour evenements_date_machine() =============== #
+#
+
+# Vérifie si la date courante a déjà été écrite.
+date_existe()
+{
+    if [[ $(echo $line | cut -f2 -d";") == $DATE ]]; then
+        usleep 1
+    else
+        DATE=$(echo $line | cut -f2 -d";")
+        echo -e "***** $DATE"
+    fi
+}
+
+# Vérifie si la machine courante a déjà été écrite.
+machine_existe()
+{
+    if [[ $1 == $2 ]]; then
+        evenement_existe $3 $4
+    else
+        MACHINE=$1
+        echo -e "\n\t* $MACHINE"
+        evenement_existe $3 $4
+    fi
+}
+
+# Vérifie si l'évènement courant a déjà été écrit.
+evenement_existe()
+{
+    if [[ $1 == $2 ]]; then
+        usleep 1
+    else
+        EVENEMENT=$1
+        echo -e "\t\t* $EVENEMENT (Nombre: $NOMBRE)"
+        EVENEMENT=""
+    fi
+}
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
+# ========= Fin des fonctions pour evenements_date_machine() ============ #
+#
+
+
+# Fonction affichant une barre de progression trouvée sur Internet.
+# Auteur : Dotan Barak.
+print_progress_bar()
+{
+        # Calculate how many characters will be full.
+        let "full_limit = ((($1 - $BRACKET_CHARS) * $2) / $LIMIT)"
+
+        # Calculate how many characters will be empty.
+        let "empty_limit = ($1 - $BRACKET_CHARS) - ${full_limit}"
+
+        # Prepare the bar.
+        bar_line="${BAR_CHAR_START}"
+        for ((j=0; j<full_limit; j++)); do
+                bar_line="${bar_line}${BAR_CHAR_FULL}"
+        done
+
+        for ((j=0; j<empty_limit; j++)); do
+                bar_line="${bar_line}${BAR_CHAR_EMPTY}"
+        done
+
+        bar_line="${bar_line}${BAR_CHAR_END}"
+
+        printf "%3d%% %s" $2 ${bar_line}
+}

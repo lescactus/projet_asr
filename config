@@ -1,0 +1,30 @@
+# Fichier de configuration.
+
+IFS=$'\n'                                       # Nouveau séparateur de champ: caractère de fin de ligne.
+
+# Contenu du menu.
+MENU[0]="Connaître le nombre de virus par machine."
+MENU[1]="Connaître la liste des différents virus."
+MENU[2]="Recenser et afficher le nombre total d'erreurs."
+MENU[3]="Connaître les erreurs par machine."
+MENU[4]="Connaître les machines les plus critiques."
+MENU[5]="Connaître les machines qui n'ont pas effectué la mise à jour de la base de données des virus."
+MENU[6]="Recenser les machines qui sont hors connexion réseau."
+MENU[7]="Recenser et afficher les différents évènements."
+MENU[8]="Afficher les évènements, par date et par machine."
+MENU[9]="Quitter."
+
+LARGEUR_TERMINAL=$(tput cols)                   # Largeur du terminal utilisé
+X_CURSEUR=$(( $LARGEUR_TERMINAL / 2 - 24 /2 ))  # Position du curseur en X pour faire apparaître le menu au milieu du terminal.
+
+FICHIER_CSV="csv"
+FICHIER_TMP="tmp"
+
+# Taille de la barre. Correspond à la taille du terminal - 5 (Il faut 5 caractères pour afficher correctement les pourcentages).
+BAR_WIDTH=$(($(tput cols) - 5))
+BAR_CHAR_START="["
+BAR_CHAR_END="]"
+BAR_CHAR_EMPTY="."
+BAR_CHAR_FULL="="
+BRACKET_CHARS=2
+LIMIT=100
